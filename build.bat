@@ -1,0 +1,1 @@
+tcc tinyweb.c -I libtcc libtcc.def -Llib -ladvapi32 -lmswsock -lws2_32
