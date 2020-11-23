@@ -59,13 +59,78 @@ void getFileContent(const char* filename, char** contentPtr, int* lengthPtr) {
 	CloseHandle(fileHandle);
 }
 
+struct mimeDef {
+	const char* ext;
+	const char* mime;
+};
+// List is from https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types, incomplete
+struct mimeDef mimes[23] = {
+	{"html" , "text/html"      },
+	{"c"    , "text/html"      },
+	{"txt"  , "text/plain"     },
+	{"css"  , "text/css"       },
+	{"js"   , "text/javascript"},
+	{"apng" , "image/apng"     },
+	{"bmp"  , "image/bmp"      },
+	{"gif"  , "image/gif"      },
+	{"ico"  , "image/x-icon"   },
+	{"cur"  , "image/x-icon"   },
+	{"jpg"  , "image/jpeg"     },
+	{"jpeg" , "image/jpeg"     },
+	{"jfif" , "image/jpeg"     },
+	{"pjpeg", "image/jpeg"     },
+	{"pjp"  , "image/jpeg"     },
+	{"png"  , "image/png"      },
+	{"svg"  , "image/svg+xml"  },
+	{"tif"  , "image/tiff"     },
+	{"tiff" , "image/tiff"     },
+	{"webp" , "image/webp"     },
+	{"wav"  , "audio/wav"      },
+	{"webm" , "video/webm"     },
+	{"ogg"  , "video/ogg"      }
+};
+const char* getMime(const char* path) {
+	int pos = 0;
+	char ext[12] = {};
+	int extPos = 0;
+	int gotDot = 0;
+	while (path[pos] != 0) {
+		if (gotDot) {
+			if (path[pos] == '.') {
+				extPos = 0;
+			} else {
+				ext[extPos++] = path[pos];
+			}
+		}
+		if (path[pos] == '.') {
+			gotDot = 1;
+		}
+		pos++;
+	}
+	ext[extPos] = 0;
+	if (gotDot) { // Only process the one with extension
+		int i;
+		for (i = 0; i < (sizeof(mimes) / sizeof(struct mimeDef)); i++) {
+			for (pos = 0; pos <= extPos; pos++) {
+				if (ext[pos] != mimes[i].ext[pos]) {
+					break;
+				}
+			}
+			if (pos > extPos) {
+				return mimes[i].mime;
+			}
+		}
+	}
+	return "application/octet-stream";
+}
+
 const char* notFoundStr = "Not found!";
 const char* compileErrorStr = "Compilation error!";
 const char* okHeader =
 "HTTP/1.1 200 OK\r\n"
-"Server: tinyweb/0.0.1\r\n"
+"Server: tinyweb/0.0.1 (Win64)\r\n"
 "Content-Length: %d\r\n"
-"Content-Type: text/html\r\n"
+"Content-Type: %s\r\n"
 "Connection: Closed\r\n"
 "\r\n";
 DWORD handleClient(void* socket) {
@@ -117,7 +182,7 @@ DWORD handleClient(void* socket) {
 			
 			// Send header
 			char sendBuffer[1024];
-			sprintf(sendBuffer, okHeader, contentLength);
+			sprintf(sendBuffer, okHeader, contentLength, getMime(path));
 			int sendBufferLength = 0;
 			while (sendBuffer[sendBufferLength] != 0) {sendBufferLength++;}
 			send(sock, sendBuffer, sendBufferLength, 0);
