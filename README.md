@@ -28,7 +28,7 @@ You will need the latest TCC release (should be on system path, preferably `tcc-
 ### Setting up tinyweb
 > Make sure that tcc is in the system `PATH` by typing `echo %PATH%` inside cmd and search for tcc installation folder.
 
-Just run `build` on the tinyweb folder.
+Copy `libtcc.def` and `libtcc.h` inside `libtcc` folder of TCC, and `libtcc.dll` inside TCC folder to the tinyweb folder, then run `build`.
 
 ## Contributing
 Any changes to this file, any typo fixes, code fixes, code improvements, and new documentations are very welcome.
