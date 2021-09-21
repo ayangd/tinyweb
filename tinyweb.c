@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define _WIN32_WINNT 0x501
 #define WIN32_LEAN_AND_MEAN
@@ -23,7 +24,7 @@ loadFunc compile(const char* filename) {
 	tcc_set_output_type(s, TCC_OUTPUT_MEMORY);
 
 	if (tcc_add_file(s, filename) == -1) {
-		fprintf(stderr, "Can't add file.\n");
+		fprintf(stderr, "Can't find file to compile.\n");
 		tcc_delete(s);
 		return NULL;
 	}
@@ -145,6 +146,7 @@ DWORD handleClient(void* socket) {
 			char path[1024] = "www";
 			int readPos = 0;
 			int writePos = 3;
+			const char* mime = getMime(path);
 			while (buffer[readPos] != ' ') {
 				readPos++;
 			}
@@ -153,6 +155,38 @@ DWORD handleClient(void* socket) {
 				path[writePos++] = buffer[readPos++];
 			}
 			path[writePos] = 0;
+			printf("Path request: %s\n", path);
+
+			int fileAttribute = GetFileAttributesA(path);
+			if (fileAttribute == INVALID_FILE_ATTRIBUTES) {
+				mime = "text/html";
+			} else if (fileAttribute & FILE_ATTRIBUTE_DIRECTORY) {
+				char pathCheck[1024];
+				int pathLength;
+				strcpy(pathCheck, path);
+				pathLength = strlen(pathCheck);
+				if (pathCheck[pathLength - 1] != '/') {
+					pathCheck[pathLength++] = '/';
+				}
+				strcpy(&pathCheck[pathLength], "index.c");
+				fileAttribute = GetFileAttributesA(pathCheck);
+				if (fileAttribute != INVALID_FILE_ATTRIBUTES &&
+					(fileAttribute & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+						strcpy(path, pathCheck);
+						writePos = strlen(path);
+						mime = "text/html";
+				}
+				else {
+					strcpy(&pathCheck[pathLength], "index.html");
+					fileAttribute = GetFileAttributesA(pathCheck);
+					if (fileAttribute != INVALID_FILE_ATTRIBUTES &&
+						(fileAttribute & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+							strcpy(path, pathCheck);
+							writePos = strlen(path);
+							mime = "text/html";
+					}
+				}
+			}
 			
 			char* content;
 			int contentLength;
@@ -182,7 +216,7 @@ DWORD handleClient(void* socket) {
 			
 			// Send header
 			char sendBuffer[1024];
-			sprintf(sendBuffer, okHeader, contentLength, getMime(path));
+			sprintf(sendBuffer, okHeader, contentLength, mime);
 			int sendBufferLength = 0;
 			while (sendBuffer[sendBufferLength] != 0) {sendBufferLength++;}
 			send(sock, sendBuffer, sendBufferLength, 0);
@@ -212,6 +246,7 @@ int main(void) {
 	
 	bind(server, (SOCKADDR*)&addr, sizeof(addr));
 	
+	printf("Listening on port 80...\n");
 	while (1) {
 		listen(server, 0);
 		SOCKET client;
@@ -222,12 +257,6 @@ int main(void) {
 			HANDLE thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)handleClient, (void*)client, 0, 0);
 		}
 	}
-	
-	/*
-	loadFunc test = compile("test.c");
-	if (test != NULL) {
-		printf("Result: %d\n", test(NULL));
-	}*/
 	
 	WSACleanup();
 	return 0;
